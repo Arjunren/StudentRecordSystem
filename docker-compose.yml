@@ -1,0 +1,38 @@
+services:
+  db:
+    image: postgres:17-alpine
+    environment: { POSTGRES_DB: students, POSTGRES_USER: students, POSTGRES_PASSWORD: students_dev }
+    healthcheck: { test: ["CMD-SHELL", "pg_isready -U students -d students"], interval: 5s, timeout: 3s, retries: 10 }
+    volumes: ["student_data:/var/lib/postgresql/data"]
+  api:
+    build: .
+    environment:
+      DATABASE_URL: postgresql+psycopg://students:students_dev@db:5432/students
+      JWT_SECRET: local-docker-secret-change-before-sharing
+      JWT_EXPIRY_MINUTES: 30
+      ALLOWED_ORIGINS: http://localhost:3000,http://localhost:5173
+    ports: ["8000:8000"]
+    depends_on: { db: { condition: service_healthy } }
+  migrate:
+    build: .
+    command: ["python", "-m", "app.migrate"]
+    environment:
+      DATABASE_URL: postgresql+psycopg://students:students_dev@db:5432/students
+      JWT_SECRET: local-docker-secret-change-before-sharing
+    depends_on: { db: { condition: service_healthy } }
+    profiles: ["tools"]
+  seed:
+    build: .
+    command: ["python", "-m", "app.seed"]
+    environment:
+      DATABASE_URL: postgresql+psycopg://students:students_dev@db:5432/students
+      JWT_SECRET: local-docker-secret-change-before-sharing
+      SEED_ADMIN_EMAIL: admin@example.com
+      SEED_ADMIN_PASSWORD: AdminPass123!
+      SEED_TEACHER_EMAIL: teacher@example.com
+      SEED_TEACHER_PASSWORD: TeacherPass123!
+      SEED_STUDENT_EMAIL: student@example.com
+      SEED_STUDENT_PASSWORD: StudentPass123!
+    depends_on: { db: { condition: service_healthy } }
+    profiles: ["tools"]
+volumes: { student_data: {} }
